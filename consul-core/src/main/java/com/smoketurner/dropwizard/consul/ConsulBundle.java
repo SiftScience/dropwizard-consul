@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import com.orbitz.consul.Consul;
 import com.orbitz.consul.ConsulException;
+import com.smoketurner.dropwizard.consul.config.ConsulNoOpSubstitutor;
 import com.smoketurner.dropwizard.consul.config.ConsulSubstitutor;
 import com.smoketurner.dropwizard.consul.core.ConsulAdvertiser;
 import com.smoketurner.dropwizard.consul.core.ConsulServiceListener;
@@ -128,6 +129,10 @@ public abstract class ConsulBundle<C extends Configuration>
           getConsulAgentHost(),
           getConsulAgentPort(),
           e);
+      bootstrap.setConfigurationSourceProvider(
+          new SubstitutingSourceProvider(
+              bootstrap.getConfigurationSourceProvider(),
+              new ConsulNoOpSubstitutor(strict, substitutionInVariables)));
     }
   }
 
@@ -137,7 +142,15 @@ public abstract class ConsulBundle<C extends Configuration>
     if (!consulConfig.isEnabled()) {
       LOGGER.warn("Consul bundle disabled.");
     } else {
-      runEnabled(consulConfig, environment);
+      try {
+        runEnabled(consulConfig, environment);
+      } catch (ConsulException e) {
+        LOGGER.warn(
+            "Unable to query Consul running on {}:{}," + " disabling service registration",
+            getConsulAgentHost(),
+            getConsulAgentPort(),
+            e);
+      }
     }
   }
 
